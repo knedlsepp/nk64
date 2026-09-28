@@ -2617,10 +2617,11 @@ void func_80095574(void) {
     if (gMenuTimingCounter == 2) {
         play_sound2(SOUND_INTRO_WELCOME);
     }
-    if (gMenuTimingCounter > 300) {
-        func_8009E230();
-        func_800CA0A0();
-    }
+    // nk64: automatic demo on the start screen disabled
+    // if (gMenuTimingCounter > 300) {
+    //     func_8009E230();
+    //     func_800CA0A0();
+    // }
     gSPDisplayList(gDisplayListHead++, D_020076E0);
 }
 
