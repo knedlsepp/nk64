@@ -135,6 +135,7 @@ s32 sc64ReadText(char* buf, s32 size);
 #define AUDIENCE_SAY_FRAMES 150
 #define AUDIENCE_TEXT_MAX 64
 #define AUDIENCE_PLAYERS 4
+#define AUDIENCE_MAX_LINES 8
 
 extern s8 D_800E5628[]; // ASCII to debug font glyph, negative if there is none
 
@@ -162,6 +163,54 @@ static void audience_message(s32 playerIndex, const char* prefix, const char* te
 }
 
 /**
+ * Splits text into lines of at most perLine characters: at '\n', else at the
+ * last space that fits; only words longer than a line get cut.
+ * Returns the number of lines, their starts and lengths.
+ */
+static s32 audience_wrap(const char* text, s32 perLine, s32* starts, s32* lengths) {
+    s32 lines = 0;
+    s32 i = 0;
+    s32 start, end, lastSpace;
+
+    while (text[i] != '\0' && lines < AUDIENCE_MAX_LINES) {
+        while (text[i] == ' ') {
+            i++;
+        }
+        start = i;
+        lastSpace = -1;
+        while (text[i] != '\0' && text[i] != '\n' && i - start < perLine) {
+            if (text[i] == ' ') {
+                lastSpace = i;
+            }
+            i++;
+        }
+        if (text[i] == '\0' || text[i] == '\n') {
+            end = i;
+            if (text[i] == '\n') {
+                i++;
+            }
+        } else if (text[i] == ' ') {
+            end = i;
+        } else if (lastSpace > start) {
+            end = lastSpace;
+            i = lastSpace + 1;
+        } else {
+            end = i;
+        }
+        // No trailing spaces, they would only widen the box
+        while (end > start && text[end - 1] == ' ') {
+            end--;
+        }
+        if (end > start) {
+            starts[lines] = start;
+            lengths[lines] = end - start;
+            lines++;
+        }
+    }
+    return lines;
+}
+
+/**
  * Called at the end of every rendered race frame. Draws each player's message
  * onto their own screen, on a black box right where their kart is, so it gets
  * in their way a bit.
@@ -170,7 +219,9 @@ void audience_render(void) {
     struct UnkStruct_800DC5EC* screen;
     AudienceMessage* message;
     s32 screenCount = gPlayerCountSelection1 < AUDIENCE_PLAYERS ? gPlayerCountSelection1 : AUDIENCE_PLAYERS;
-    s32 s, playerIndex, len, perLine, lines, width, height, x0, y0, i;
+    s32 starts[AUDIENCE_MAX_LINES];
+    s32 lengths[AUDIENCE_MAX_LINES];
+    s32 s, playerIndex, perLine, lines, line, width, height, x0, y0, i;
 
     gDPPipeSync(gDisplayListHead++);
     gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -183,11 +234,14 @@ void audience_render(void) {
         message = &sAudienceMessages[playerIndex];
         message->timer--;
 
-        for (len = 0; message->text[len] != '\0'; len++) {
-        }
         perLine = screen->screenWidth / 8 - 2;
-        lines = (len + perLine - 1) / perLine;
-        width = (lines > 1 ? perLine : len) * 8;
+        lines = audience_wrap(message->text, perLine, starts, lengths);
+        width = 0;
+        for (line = 0; line < lines; line++) {
+            if (lengths[line] * 8 > width) {
+                width = lengths[line] * 8;
+            }
+        }
         height = lines * 8;
         x0 = screen->screenStartX - width / 2;
         // A bit below the middle: where the kart is
@@ -201,11 +255,15 @@ void audience_render(void) {
         gDPPipeSync(gDisplayListHead++);
         gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
 
-        // Glyph by glyph: debug_print_string() wraps at the edge of the whole screen
+        // Glyph by glyph, each line centered: debug_print_string() wraps at the
+        // edge of the whole screen
         load_debug_font();
-        for (i = 0; i < len; i++) {
-            if (D_800E5628[(u8) message->text[i]] >= 0) {
-                func_800573E4(x0 + (i % perLine) * 8, y0 + (i / perLine) * 8, D_800E5628[(u8) message->text[i]]);
+        for (line = 0; line < lines; line++) {
+            for (i = 0; i < lengths[line]; i++) {
+                if (D_800E5628[(u8) message->text[starts[line] + i]] >= 0) {
+                    func_800573E4(screen->screenStartX - lengths[line] * 4 + i * 8, y0 + line * 8,
+                                  D_800E5628[(u8) message->text[starts[line] + i]]);
+                }
             }
         }
         func_80057778();
@@ -255,7 +313,7 @@ void audience_steal(s32 playerIndex) {
         set_object_timer_state(objectIndex, 0);
         // Same pop as a balloon, see pop_player_balloon()
         func_800C9060(playerIndex, SOUND_ARG_LOAD(0x19, 0x00, 0x90, 0x51));
-        audience_message(playerIndex, "", "PUBLIKUM STIEHLT DEIN ITEM!", AUDIENCE_TEXT_FRAMES);
+        audience_message(playerIndex, "", "PUBLIKUM STIEHLT\nDEIN ITEM!", AUDIENCE_TEXT_FRAMES);
         effect = "item";
     }
     osSyncPrintf("{\"event\":\"audience_steal\", \"playerIndex\":%d, \"effect\":\"%s\"}\n", playerIndex,
