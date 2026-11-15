@@ -235,6 +235,11 @@ void audience_render(void) {
         message->timer--;
 
         perLine = screen->screenWidth / 8 - 2;
+        if (perLine < 4) {
+            // The screens zoom in from 4x4 pixels at the start (see func_802A74BC()),
+            // audience_wrap() would never finish with less than a character per line
+            continue;
+        }
         lines = audience_wrap(message->text, perLine, starts, lengths);
         width = 0;
         for (line = 0; line < lines; line++) {
