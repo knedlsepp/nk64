@@ -24,6 +24,7 @@
 #include "math.h"
 #include "menus.h"
 #include "seq_ids.h"
+#include "render_objects.h"
 
 #pragma intrinsic(sqrtf)
 
@@ -124,6 +125,166 @@ void update_player_battle_status(void) {
         gPlayerWinningIndex = (s32) playersDead[0];
         osSyncPrintf("{\"event\":\"battle_win\", \"playerIndex\":%d}\n", gPlayerWinningIndex);
         func_8028E028();
+    }
+}
+
+s32 sc64ReadText(char* buf, s32 size);
+
+#define AUDIENCE_TEXT_FRAMES 90
+#define AUDIENCE_SAY_FRAMES 150
+#define AUDIENCE_TEXT_MAX 64
+#define AUDIENCE_PLAYERS 4
+
+extern s8 D_800E5628[]; // ASCII to debug font glyph, negative if there is none
+
+// A message on a player's own screen, from the audience
+typedef struct {
+    char text[AUDIENCE_TEXT_MAX + 1];
+    s32 timer; // frames left to show it
+} AudienceMessage;
+
+static AudienceMessage sAudienceMessages[AUDIENCE_PLAYERS];
+
+// prefix and text are already restricted to the debug font (by the dashboard)
+static void audience_message(s32 playerIndex, const char* prefix, const char* text, s32 frames) {
+    AudienceMessage* message = &sAudienceMessages[playerIndex];
+    s32 len = 0;
+
+    while (*prefix != '\0' && len < AUDIENCE_TEXT_MAX) {
+        message->text[len++] = *prefix++;
+    }
+    while (*text != '\0' && len < AUDIENCE_TEXT_MAX) {
+        message->text[len++] = *text++;
+    }
+    message->text[len] = '\0';
+    message->timer = frames;
+}
+
+/**
+ * Called at the end of every rendered race frame. Draws each player's message
+ * onto their own screen, on a black box right where their kart is, so it gets
+ * in their way a bit.
+ */
+void audience_render(void) {
+    struct UnkStruct_800DC5EC* screen;
+    AudienceMessage* message;
+    s32 screenCount = gPlayerCountSelection1 < AUDIENCE_PLAYERS ? gPlayerCountSelection1 : AUDIENCE_PLAYERS;
+    s32 s, playerIndex, len, perLine, lines, width, height, x0, y0, i;
+
+    gDPPipeSync(gDisplayListHead++);
+    gDPSetScissor(gDisplayListHead++, G_SC_NON_INTERLACE, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    for (s = 0; s < screenCount; s++) {
+        screen = &D_8015F480[s];
+        playerIndex = screen->player - gPlayers;
+        if (playerIndex < 0 || playerIndex >= AUDIENCE_PLAYERS || sAudienceMessages[playerIndex].timer <= 0) {
+            continue;
+        }
+        message = &sAudienceMessages[playerIndex];
+        message->timer--;
+
+        for (len = 0; message->text[len] != '\0'; len++) {
+        }
+        perLine = screen->screenWidth / 8 - 2;
+        lines = (len + perLine - 1) / perLine;
+        width = (lines > 1 ? perLine : len) * 8;
+        height = lines * 8;
+        x0 = screen->screenStartX - width / 2;
+        // A bit below the middle: where the kart is
+        y0 = screen->screenStartY + screen->screenHeight / 6 - height / 2;
+
+        gDPPipeSync(gDisplayListHead++);
+        gDPSetRenderMode(gDisplayListHead++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
+        gDPSetCycleType(gDisplayListHead++, G_CYC_FILL);
+        gDPSetFillColor(gDisplayListHead++, (GPACK_RGBA5551(0, 0, 0, 1) << 16 | GPACK_RGBA5551(0, 0, 0, 1)));
+        gDPFillRectangle(gDisplayListHead++, x0 - 4, y0 - 4, x0 + width + 3, y0 + height + 3);
+        gDPPipeSync(gDisplayListHead++);
+        gDPSetCycleType(gDisplayListHead++, G_CYC_1CYCLE);
+
+        // Glyph by glyph: debug_print_string() wraps at the edge of the whole screen
+        load_debug_font();
+        for (i = 0; i < len; i++) {
+            if (D_800E5628[(u8) message->text[i]] >= 0) {
+                func_800573E4(x0 + (i % perLine) * 8, y0 + (i / perLine) * 8, D_800E5628[(u8) message->text[i]]);
+            }
+        }
+        func_80057778();
+    }
+}
+
+static void audience_clear_messages(void) {
+    s32 i;
+
+    for (i = 0; i < AUDIENCE_PLAYERS; i++) {
+        sAudienceMessages[i].timer = 0;
+    }
+}
+
+// Length of prefix if str starts with it, else 0
+static s32 starts_with(const char* str, const char* prefix) {
+    s32 i;
+
+    for (i = 0; prefix[i] != '\0'; i++) {
+        if (str[i] != prefix[i]) {
+            return 0;
+        }
+    }
+    return i;
+}
+
+/**
+ * The audience steals the held item, from the dranglpak64 dashboard.
+ * Harmless on purpose: doesn't trigger any event that dispenses a drink.
+ */
+void audience_steal(s32 playerIndex) {
+    Player* player = &gPlayers[playerIndex];
+    s32 objectIndex;
+    ItemWindowObjects* itemWindow;
+    const char* effect = "none";
+
+    if (!(player->type & PLAYER_EXISTS) || !(player->type & PLAYER_HUMAN) ||
+        (player->type & PLAYER_CINEMATIC_MODE)) {
+        return;
+    }
+    if (player->currentItemCopy != ITEM_NONE) {
+        // Like using it up, see consume_item()
+        objectIndex = gItemWindowObjectByPlayerId[playerIndex];
+        itemWindow = (ItemWindowObjects*) &gObjectList[objectIndex];
+        player->currentItemCopy = ITEM_NONE;
+        itemWindow->currentItem = ITEM_NONE;
+        set_object_timer_state(objectIndex, 0);
+        // Same pop as a balloon, see pop_player_balloon()
+        func_800C9060(playerIndex, SOUND_ARG_LOAD(0x19, 0x00, 0x90, 0x51));
+        audience_message(playerIndex, "", "PUBLIKUM STIEHLT DEIN ITEM!", AUDIENCE_TEXT_FRAMES);
+        effect = "item";
+    }
+    osSyncPrintf("{\"event\":\"audience_steal\", \"playerIndex\":%d, \"effect\":\"%s\"}\n", playerIndex,
+                 effect);
+}
+
+/**
+ * Commands from the dranglpak64 dashboard, sent via `sc64deployer debug`:
+ *   "steal <playerIndex>"
+ *   "say <playerIndex> <message>", or "say * <message>" for everyone
+ * Only acted upon while a race/battle is running.
+ */
+void audience_poll(void) {
+    char buf[AUDIENCE_TEXT_MAX + 8];
+    s32 i;
+    s32 playerIndex;
+
+    if (sc64ReadText(buf, sizeof(buf)) == 0 || D_800DC510 != 3) {
+        return;
+    }
+    if ((i = starts_with(buf, "steal ")) != 0) {
+        if (buf[i] >= '0' && buf[i] <= '3') {
+            audience_steal(buf[i] - '0');
+        }
+    } else if ((i = starts_with(buf, "say ")) != 0 && buf[i] != '\0' && buf[i + 1] == ' ') {
+        for (playerIndex = 0; playerIndex < AUDIENCE_PLAYERS; playerIndex++) {
+            if (buf[i] == '*' || buf[i] == '0' + playerIndex) {
+                audience_message(playerIndex, "", &buf[i + 2], AUDIENCE_SAY_FRAMES);
+            }
+        }
     }
 }
 
@@ -499,6 +660,7 @@ void start_race(void) {
     s32 i;
 
     D_8015011E = -1;
+    audience_clear_messages();
     if (!gDemoMode) { // If we're not in the title screen demo, play the music for the current track.
         play_music_for_current_track(gCurrentCourseId);
         osSyncPrintf("{\"event\":\"race_start\"}\n");

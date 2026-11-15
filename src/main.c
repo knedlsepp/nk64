@@ -850,6 +850,7 @@ void race_logic_loop(void) {
     func_802A4300();
     func_800591B4();
     func_80093E20();
+    audience_render();
 #if DVDL
     display_dvdl();
 #endif
@@ -911,6 +912,7 @@ void game_state_handler(void) {
 #endif
             break;
         case RACING:
+            audience_poll();
             race_logic_loop();
             break;
         case ENDING:
