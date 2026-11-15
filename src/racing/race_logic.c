@@ -154,6 +154,8 @@ typedef struct {
 static AudienceMessage sAudienceMessages[AUDIENCE_PLAYERS];
 // Frames left of each player's "Promillebrille" (drunk goggles)
 static s32 sGogglesTimer[AUDIENCE_PLAYERS];
+// Whether a race/battle is running, to report when it's over
+static s32 sRaceRunning;
 
 // prefix and text are already restricted to the debug font (by the dashboard)
 static void audience_message(s32 playerIndex, const char* prefix, const char* text, s32 frames) {
@@ -425,6 +427,13 @@ void audience_poll(void) {
     char buf[AUDIENCE_TEXT_MAX + 8];
     s32 i;
     s32 playerIndex;
+    // 3: running. Finishing or winning changes it, quitting from the pause menu doesn't
+    s32 running = (D_800DC510 == 3) && !gIsInQuitToMenuTransition;
+
+    if (sRaceRunning && !running && !gDemoMode) {
+        osSyncPrintf("{\"event\":\"race_over\"}\n");
+    }
+    sRaceRunning = running;
 
     if (sc64ReadText(buf, sizeof(buf)) == 0 || D_800DC510 != 3) {
         return;
