@@ -286,6 +286,8 @@ void audience_poll(void) {
                 audience_message(playerIndex, "", &buf[i + 2], AUDIENCE_SAY_FRAMES);
             }
         }
+        // The "ping" of switching the race HUD with L: you've got mail
+        play_sound2(SOUND_ACTION_PING);
     }
 }
 
