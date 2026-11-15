@@ -410,6 +410,17 @@ player spins. Something  with avoding rollover of aniamation frame data? */
 #define HIGH_TUMBLE_CAUSE_RED_SHELL 1
 #define HIGH_TUMBLE_CAUSE_BLUE_SHELL 2
 #define HIGH_TUMBLE_CAUSE_MOLE 3
+
+// What set VERTICAL_TUMBLE_TRIGGER, see gVerticalTumbleCause
+#define VERTICAL_TUMBLE_CAUSE_UNKNOWN 0
+#define VERTICAL_TUMBLE_CAUSE_TRAIN 1
+#define VERTICAL_TUMBLE_CAUSE_CAR 2
+#define VERTICAL_TUMBLE_CAUSE_TRUCK 3
+#define VERTICAL_TUMBLE_CAUSE_BUS 4
+#define VERTICAL_TUMBLE_CAUSE_FAKE_ITEM_BOX 5
+#define VERTICAL_TUMBLE_CAUSE_BOMB 6
+#define VERTICAL_TUMBLE_CAUSE_SNOWMAN 7
+#define VERTICAL_TUMBLE_CAUSE_CHAIN_CHOMP 8
 #define DRIVING_SPINOUT_TRIGGER        0x80 // spinning out from erratic driving
 #define THWOMP_SQUISH_TRIGGER         0x100 // stomped by thwomp
 #define SHROOM_TRIGGER                0x200 // being boosted by trigger a mushroom

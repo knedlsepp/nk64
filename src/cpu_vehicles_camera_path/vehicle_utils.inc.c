@@ -373,6 +373,7 @@ void handle_trains_interactions(s32 playerId, Player* player) {
                         if (is_collide_with_vehicle(trainCar->position[0], trainCar->position[2], trainCar->velocity[0],
                                                     trainCar->velocity[2], 60.0f, 20.0f, playerPosX, playerPosZ) == 1) {
                             player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                            gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_TRAIN;
                         }
                         trainCar = &gTrainList[trainIndex].tender;
                         if (trainCar->isActive == 1) {
@@ -380,6 +381,7 @@ void handle_trains_interactions(s32 playerId, Player* player) {
                                                         trainCar->velocity[0], trainCar->velocity[2], 30.0f, 20.0f,
                                                         playerPosX, playerPosZ) == 1) {
                                 player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                                gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_TRAIN;
                             }
                         }
                     }
@@ -396,6 +398,7 @@ void handle_trains_interactions(s32 playerId, Player* player) {
                                                             trainCar->velocity[0], trainCar->velocity[2], 30.0f, 20.0f,
                                                             playerPosX, playerPosZ) == 1) {
                                     player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                                    gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_TRAIN;
                                 }
                             }
                         }
@@ -806,6 +809,14 @@ void handle_vehicle_interactions(s32 playerId, Player* player, VehicleStuff* veh
                                                     vehicle->velocity[2], distanceX, distanceY, playerX,
                                                     playerZ) == (s32) 1) {
                             player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                            if (vehicle >= gSchoolBusList && vehicle < &gSchoolBusList[NUM_RACE_SCHOOL_BUSES]) {
+                                gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_BUS;
+                            } else if ((vehicle >= gTankerTruckList && vehicle < &gTankerTruckList[NUM_RACE_TANKER_TRUCKS]) ||
+                                       (vehicle >= gBoxTruckList && vehicle < &gBoxTruckList[NUM_RACE_BOX_TRUCKS])) {
+                                gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_TRUCK;
+                            } else if (vehicle >= gCarList && vehicle < &gCarList[NUM_RACE_CARS]) {
+                                gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_CAR;
+                            }
                             if (player->type & PLAYER_HUMAN && gGamestate == RACING && !gDemoMode) {
                                 const char* vehicleType = "UNKNOWN";
                                 if (vehicle >= gSchoolBusList && vehicle < &gSchoolBusList[NUM_RACE_SCHOOL_BUSES]) {

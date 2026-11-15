@@ -140,6 +140,7 @@ void func_8000DF8C(s32 bombKartId) {
                         var_s1 = 0;
                         sp7E = 4;
                         var_v0->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                        gVerticalTumbleCause[var_v0 - gPlayerOne] = VERTICAL_TUMBLE_CAUSE_BOMB;
                         var_v0->type &= ~PLAYER_START_SEQUENCE;
                     }
                 }
@@ -158,6 +159,7 @@ void func_8000DF8C(s32 bombKartId) {
                                 var_v0->triggers |= HIT_BY_STAR_TRIGGER;
                             } else {
                                 var_v0->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                                gVerticalTumbleCause[var_v0 - gPlayerOne] = VERTICAL_TUMBLE_CAUSE_BOMB;
                             }
                         }
                     }

@@ -2307,6 +2307,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
                 break;
             }
             player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+            gVerticalTumbleCause[temp_lo] = VERTICAL_TUMBLE_CAUSE_FAKE_ITEM_BOX;
             owner = &gPlayers[temp_v1];
             if (player->type & PLAYER_HUMAN && gGamestate == RACING && !gDemoMode) {
                 osSyncPrintf("{\"event\":\"actor_collision\", \"playerIndex\":%d, \"actorType\":\"%s\", \"ownerIndex\":%d, \"isHumanPlayer\":true, \"isHumanOwner\":%s}\n", temp_lo, actor_type_to_string(actor->type), temp_v1, (owner->type & PLAYER_HUMAN) ? "true" : "false");

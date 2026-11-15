@@ -25,6 +25,7 @@
 #include "menus.h"
 #include "seq_ids.h"
 #include "render_objects.h"
+#include "player_controller.h"
 
 #pragma intrinsic(sqrtf)
 
@@ -1340,6 +1341,7 @@ void func_802903D8(Player* playerOne, Player* playerTwo) {
             return;
         } else {
             playerTwo->triggers |= VERTICAL_TUMBLE_TRIGGER;
+            gVerticalTumbleCause[playerTwo - gPlayerOne] = VERTICAL_TUMBLE_CAUSE_BOMB;
             func_8008FC1C(playerOne);
             func_800C9060((playerTwo - gPlayerOne), 0x19008001U);
             if ((playerOne->type & PLAYER_HUMAN || playerTwo->type & PLAYER_HUMAN) && gGamestate == RACING && !gDemoMode) {
@@ -1348,6 +1350,7 @@ void func_802903D8(Player* playerOne, Player* playerTwo) {
         }
     } else if (playerTwo->type & PLAYER_UNKNOWN_0x40) {
         playerOne->triggers |= VERTICAL_TUMBLE_TRIGGER;
+        gVerticalTumbleCause[playerOne - gPlayerOne] = VERTICAL_TUMBLE_CAUSE_BOMB;
         func_8008FC1C(playerTwo);
         func_800C9060(playerOne - gPlayerOne, 0x19008001U);
         if ((playerOne->type & PLAYER_HUMAN || playerTwo->type & PLAYER_HUMAN) && gGamestate == RACING && !gDemoMode) {

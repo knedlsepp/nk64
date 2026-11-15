@@ -1379,6 +1379,12 @@ void func_8002B218(Player* player) {
 
 // Initialized: mk64.ld has no .bss for this file
 s8 gHighTumbleCause[NUM_PLAYERS] = { HIGH_TUMBLE_CAUSE_UNKNOWN };
+s8 gVerticalTumbleCause[NUM_PLAYERS] = { VERTICAL_TUMBLE_CAUSE_UNKNOWN };
+
+static const char* sVerticalTumbleEvents[] = {
+    "explosion_crash", "hit_train", "hit_car", "hit_truck", "hit_bus",
+    "hit_fake_item_box", "hit_bomb", "hit_snowman", "hit_chain_chomp",
+};
 
 void apply_triggers(Player* player, s8 playerId, UNUSED s8 screenId) {
     if ((player->triggers & HIGH_TUMBLE_TRIGGER) == HIGH_TUMBLE_TRIGGER) {
@@ -1445,8 +1451,10 @@ void apply_triggers(Player* player, s8 playerId, UNUSED s8 screenId) {
     if ((player->triggers & VERTICAL_TUMBLE_TRIGGER) == VERTICAL_TUMBLE_TRIGGER) {
         trigger_vertical_tumble(player, playerId);
         if ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN && gGamestate == RACING && !gDemoMode) {
-            osSyncPrintf("{\"event\":\"explosion_crash\", \"playerIndex\":%d}\n", playerId);
+            osSyncPrintf("{\"event\":\"%s\", \"playerIndex\":%d}\n",
+                         sVerticalTumbleEvents[gVerticalTumbleCause[playerId]], playerId);
         }
+        gVerticalTumbleCause[playerId] = VERTICAL_TUMBLE_CAUSE_UNKNOWN;
     }
     if ((player->triggers & HIT_BY_STAR_TRIGGER) == HIT_BY_STAR_TRIGGER) {
         trigger_high_tumble(player, playerId);

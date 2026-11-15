@@ -193,5 +193,7 @@ extern s16 D_801656F0;
 
 // Per player: what set HIGH_TUMBLE_TRIGGER (HIGH_TUMBLE_CAUSE_*), for the JSON events
 extern s8 gHighTumbleCause[];
+// Per player: what set VERTICAL_TUMBLE_TRIGGER (VERTICAL_TUMBLE_CAUSE_*)
+extern s8 gVerticalTumbleCause[];
 
 #endif

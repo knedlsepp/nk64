@@ -16,6 +16,7 @@
 #include "main.h"
 #include "code_80057C60.h"
 #include "defines.h"
+#include "player_controller.h"
 
 void func_80086E70(s32 objectIndex) {
     gObjectList[objectIndex].unk_0AE = 1; // * 0xE0)) = 1;
@@ -1186,6 +1187,7 @@ s32 func_80089B50(s32 objectIndex) {
                 (has_collided_horizontally_with_player(objectIndex, player) != 0)) {
                 if (!(player->effects & STAR_EFFECT)) {
                     player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                    gVerticalTumbleCause[playerIndex] = VERTICAL_TUMBLE_CAUSE_SNOWMAN;
                     if (is_obj_flag_status_active(objectIndex, 0x04000000) != 0) {
                         func_80072180();
                     }
@@ -1213,6 +1215,7 @@ s32 func_80089CBC(s32 objectIndex, f32 arg1) {
                     (has_collided_with_player_and_within_height(objectIndex, player, arg1) != 0)) {
                     if (!(player->effects & STAR_EFFECT)) {
                         player->triggers |= VERTICAL_TUMBLE_TRIGGER;
+                        gVerticalTumbleCause[playerIndex] = VERTICAL_TUMBLE_CAUSE_CHAIN_CHOMP;
                         if (is_obj_flag_status_active(objectIndex, 0x04000000) != 0) {
                             func_80072180();
                         }
