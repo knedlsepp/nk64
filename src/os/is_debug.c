@@ -55,11 +55,106 @@ s32 osEPiWriteIo(OSPiHandle* handle, u32 devAddr, u32 data) {
     return ret;
 }
 
+void sc64Init(void);
+
 void isPrintfInit(void) {
     sISVHandle = osCartRomInit();
     osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->put, 0);
     osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->get, 0);
     osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->magic, ASCII_TO_U32('I', 'S', '6', '4'));
+    sc64Init();
+}
+
+// SummerCart64: receive text lines sent to the stdin of `sc64deployer debug`.
+// See docs/02_n64_commands.md of https://github.com/Polprzewodnikowy/SummerCart64
+// Addresses are relative to the cart ROM handle (PI 0x10000000).
+#define SC64_SCR 0x0FFF0000
+#define SC64_DATA0 0x0FFF0004
+#define SC64_DATA1 0x0FFF0008
+#define SC64_IDENTIFIER 0x0FFF000C
+#define SC64_KEY 0x0FFF0010
+#define SC64_BUFFER 0x0FFE0000 // 8 KiB data buffer
+#define SC64_BUFFER_PI 0x1FFE0000
+#define SC64_BUFFER_SIZE 0x2000
+#define SC64_SCR_CPU_BUSY (1 << 31)
+#define SC64_SCR_CMD_ERROR (1 << 30)
+#define SC64_USB_READ_BUSY (1 << 31)
+#define SC64_DATATYPE_TEXT 0x01
+#define SC64_MAX_POLLS 100000
+
+static s32 sSc64Present; // .bss: mk64.ld has no .data for this file
+
+static s32 sc64Command(u8 id, u32 arg0, u32 arg1, u32* rsp0, u32* rsp1) {
+    u32 scr;
+    s32 polls = SC64_MAX_POLLS;
+
+    osEPiWriteIo(sISVHandle, SC64_DATA0, arg0);
+    osEPiWriteIo(sISVHandle, SC64_DATA1, arg1);
+    osEPiWriteIo(sISVHandle, SC64_SCR, id);
+    do {
+        osEPiReadIo(sISVHandle, SC64_SCR, &scr);
+    } while ((scr & SC64_SCR_CPU_BUSY) && --polls > 0);
+    if (polls == 0 || (scr & SC64_SCR_CMD_ERROR)) {
+        return -1;
+    }
+    osEPiReadIo(sISVHandle, SC64_DATA0, rsp0);
+    osEPiReadIo(sISVHandle, SC64_DATA1, rsp1);
+    return 0;
+}
+
+void sc64Init(void) {
+    u32 identifier;
+
+    osEPiWriteIo(sISVHandle, SC64_KEY, 0x00000000);
+    osEPiWriteIo(sISVHandle, SC64_KEY, ASCII_TO_U32('_', 'U', 'N', 'L'));
+    osEPiWriteIo(sISVHandle, SC64_KEY, ASCII_TO_U32('O', 'C', 'K', '_'));
+    osEPiReadIo(sISVHandle, SC64_IDENTIFIER, &identifier);
+    // Not on a SummerCart64 (e.g. an emulator): never touch it again
+    sSc64Present = identifier == ASCII_TO_U32('S', 'C', 'v', '2');
+}
+
+/**
+ * Fetches a pending text line into buf (NUL terminated, at most size - 1 chars).
+ * Returns its length, or 0 if there is none. Cheap enough to call every frame.
+ * Packets not fetched within 1 s get dropped by the SummerCart64.
+ */
+s32 sc64ReadText(char* buf, s32 size) {
+    u32 status;
+    u32 length;
+    u32 word;
+    u32 type;
+    s32 polls = SC64_MAX_POLLS;
+    s32 i;
+
+    if (!sSc64Present || sc64Command('u', 0, 0, &status, &length) != 0) {
+        return 0;
+    }
+    type = status & 0xFF;
+    if (type == 0 || length == 0 || length > SC64_BUFFER_SIZE) {
+        return 0;
+    }
+    if (sc64Command('m', SC64_BUFFER_PI, length, &word, &word) != 0) {
+        return 0;
+    }
+    do {
+        if (sc64Command('u', 0, 0, &status, &word) != 0) {
+            return 0;
+        }
+    } while ((status & SC64_USB_READ_BUSY) && --polls > 0);
+    if (polls == 0 || type != SC64_DATATYPE_TEXT) {
+        return 0;
+    }
+    if (length > (u32) (size - 1)) {
+        length = size - 1;
+    }
+    for (i = 0; i < (s32) length; i++) {
+        if ((i & 3) == 0) {
+            osEPiReadIo(sISVHandle, SC64_BUFFER + i, &word);
+        }
+        buf[i] = (word >> ((3 - (i & 3)) * 8)) & 0xFF;
+    }
+    buf[length] = '\0';
+    return length;
 }
 
 void osSyncPrintfUnused(const char* fmt, ...) {
