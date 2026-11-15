@@ -404,6 +404,12 @@ player spins. Something  with avoding rollover of aniamation frame data? */
 #define HIT_BANANA_TRIGGER              0x1 // hits a banana
 #define HIGH_TUMBLE_TRIGGER             0x2 // hit by a red shell, blue shell, or hit a mole
 #define LOW_TUMBLE_TRIGGER              0x4 // hit by a green shell
+
+// What set HIGH_TUMBLE_TRIGGER, see gHighTumbleCause
+#define HIGH_TUMBLE_CAUSE_UNKNOWN 0
+#define HIGH_TUMBLE_CAUSE_RED_SHELL 1
+#define HIGH_TUMBLE_CAUSE_BLUE_SHELL 2
+#define HIGH_TUMBLE_CAUSE_MOLE 3
 #define DRIVING_SPINOUT_TRIGGER        0x80 // spinning out from erratic driving
 #define THWOMP_SQUISH_TRIGGER         0x100 // stomped by thwomp
 #define SHROOM_TRIGGER                0x200 // being boosted by trigger a mushroom

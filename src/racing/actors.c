@@ -8,6 +8,7 @@
 #include <defines.h>
 #include <PR/gbi.h>
 
+#include "player_controller.h"
 #include "code_800029B0.h"
 #include "main.h"
 #include "math_util.h"
@@ -2204,6 +2205,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             }
             if (!(player->effects & BOO_EFFECT)) {
                 player->triggers |= HIGH_TUMBLE_TRIGGER;
+                gHighTumbleCause[temp_lo] = HIGH_TUMBLE_CAUSE_BLUE_SHELL;
                 func_800C98B8(player->pos, player->velocity, SOUND_ARG_LOAD(0x19, 0x01, 0x80, 0x10));
             }
             owner = &gPlayers[temp_v1];
@@ -2232,6 +2234,7 @@ void evaluate_collision_between_player_actor(Player* player, struct Actor* actor
             }
             if (!(player->effects & BOO_EFFECT)) {
                 player->triggers |= HIGH_TUMBLE_TRIGGER;
+                gHighTumbleCause[temp_lo] = HIGH_TUMBLE_CAUSE_RED_SHELL;
                 func_800C98B8(player->pos, player->velocity, SOUND_ARG_LOAD(0x19, 0x01, 0x80, 0x10));
             }
             owner = &gPlayers[temp_v1];

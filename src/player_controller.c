@@ -1377,12 +1377,28 @@ void func_8002B218(Player* player) {
     }
 }
 
+// Initialized: mk64.ld has no .bss for this file
+s8 gHighTumbleCause[NUM_PLAYERS] = { HIGH_TUMBLE_CAUSE_UNKNOWN };
+
 void apply_triggers(Player* player, s8 playerId, UNUSED s8 screenId) {
     if ((player->triggers & HIGH_TUMBLE_TRIGGER) == HIGH_TUMBLE_TRIGGER) {
         trigger_high_tumble(player, playerId);
         if ((player->type & PLAYER_HUMAN) == PLAYER_HUMAN && gGamestate == RACING && !gDemoMode) {
-            osSyncPrintf("{\"event\":\"high_tumble\", \"playerIndex\":%d}\n", playerId);
+            switch (gHighTumbleCause[playerId]) {
+                case HIGH_TUMBLE_CAUSE_RED_SHELL:
+                    osSyncPrintf("{\"event\":\"hit_red_shell\", \"playerIndex\":%d}\n", playerId);
+                    break;
+                case HIGH_TUMBLE_CAUSE_BLUE_SHELL:
+                    osSyncPrintf("{\"event\":\"hit_blue_shell\", \"playerIndex\":%d}\n", playerId);
+                    break;
+                case HIGH_TUMBLE_CAUSE_MOLE:
+                    osSyncPrintf("{\"event\":\"hit_mole\", \"playerIndex\":%d}\n", playerId);
+                    break;
+                default:
+                    osSyncPrintf("{\"event\":\"high_tumble\", \"playerIndex\":%d}\n", playerId);
+            }
         }
+        gHighTumbleCause[playerId] = HIGH_TUMBLE_CAUSE_UNKNOWN;
     }
     if ((player->triggers & LOW_TUMBLE_TRIGGER) == LOW_TUMBLE_TRIGGER) {
         func_8008C528(player, playerId);

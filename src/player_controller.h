@@ -191,4 +191,7 @@ extern s16** cpu_forTwoPlayer[];
 
 extern s16 D_801656F0;
 
+// Per player: what set HIGH_TUMBLE_TRIGGER (HIGH_TUMBLE_CAUSE_*), for the JSON events
+extern s8 gHighTumbleCause[];
+
 #endif

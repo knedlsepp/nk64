@@ -4,6 +4,7 @@
 #include <decode.h>
 #include <mk64.h>
 
+#include "player_controller.h"
 #include "update_objects.h"
 #include "main.h"
 #include "memory.h"
@@ -6391,6 +6392,7 @@ void func_80081D34(s32 objectIndex) {
                     func_800C9060(playerIndex, 0x1900A046U);
                 } else {
                     player->triggers |= HIGH_TUMBLE_TRIGGER;
+                    gHighTumbleCause[playerIndex] = HIGH_TUMBLE_CAUSE_MOLE;
                 }
                 object->direction_angle[1] = var_s4->rot[1];
                 object->velocity[1] = (player->speed / 2) + 3.0;
