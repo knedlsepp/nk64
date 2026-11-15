@@ -58,9 +58,19 @@ s32 osEPiWriteIo(OSPiHandle* handle, u32 devAddr, u32 data) {
 void sc64Init(void);
 
 void isPrintfInit(void) {
+    u32 offset;
+
     sISVHandle = osCartRomInit();
-    osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->put, 0);
+    // The SummerCart64 forwards the buffer while magic is valid: invalidate it until set up
+    osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->magic, 0);
+    // Clear what previous sessions left. Switching the N64 off sometimes makes the write
+    // pointer jump below the read pointer, and the SummerCart64 then sends the rest of the
+    // buffer as new output: replayed old events, which dispensed drinks.
+    for (offset = 0; offset < sizeof(gISVDbgPrnAdrs->data); offset += 4) {
+        osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->data + offset, 0);
+    }
     osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->get, 0);
+    osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->put, 0);
     osEPiWriteIo(sISVHandle, (u32) &gISVDbgPrnAdrs->magic, ASCII_TO_U32('I', 'S', '6', '4'));
     sc64Init();
 }
