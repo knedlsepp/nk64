@@ -663,7 +663,12 @@ void start_race(void) {
     audience_clear_messages();
     if (!gDemoMode) { // If we're not in the title screen demo, play the music for the current track.
         play_music_for_current_track(gCurrentCourseId);
-        osSyncPrintf("{\"event\":\"race_start\"}\n");
+        // Human players come first. characterId also picks the battle balloon colour.
+        osSyncPrintf("{\"event\":\"race_start\", \"mode\":%d, \"players\":%d, \"characters\":[%d,%d,%d,%d]}\n",
+                     gModeSelection, gPlayerCountSelection1, gPlayers[0].characterId,
+                     gPlayerCountSelection1 > 1 ? gPlayers[1].characterId : -1,
+                     gPlayerCountSelection1 > 2 ? gPlayers[2].characterId : -1,
+                     gPlayerCountSelection1 > 3 ? gPlayers[3].characterId : -1);
     }
 
     if (D_800DC510 == 2) {
