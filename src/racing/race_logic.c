@@ -274,6 +274,23 @@ static void render_goggles(struct UnkStruct_800DC5EC* screen, s32 timer) {
     gDPPipeSync(gDisplayListHead++);
 }
 
+// Debug font text, centered on x, glyph by glyph (debug_print_string() adds offsets and wraps)
+static void draw_text_centered(s32 x, s32 y, const char* text) {
+    s32 len = 0;
+    s32 i;
+
+    while (text[len] != '\0') {
+        len++;
+    }
+    load_debug_font();
+    for (i = 0; i < len; i++) {
+        if (D_800E5628[(u8) text[i]] >= 0) {
+            func_800573E4(x - len * 4 + i * 8, y, D_800E5628[(u8) text[i]]);
+        }
+    }
+    func_80057778();
+}
+
 /**
  * Called at the end of every rendered race frame. Draws each player's message
  * onto their own screen, on a black box right where their kart is, so it gets
@@ -301,6 +318,9 @@ void audience_render(void) {
         }
         if (sGogglesTimer[playerIndex] > 0) {
             render_goggles(screen, sGogglesTimer[playerIndex]);
+            // In the dark edge at the top, so it's clear what's going on
+            draw_text_centered(screen->screenStartX, screen->screenStartY - screen->screenHeight / 2 + 8,
+                               "PROMILLEBRILLE!");
             sGogglesTimer[playerIndex]--;
         }
         if (sAudienceMessages[playerIndex].timer <= 0) {
