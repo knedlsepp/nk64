@@ -9,6 +9,7 @@ void func_8028DF38(void);
 void func_8028E028(void);
 void update_player_battle_status(void);
 void audience_steal(s32);
+void audience_goggles(s32);
 void audience_poll(void);
 void audience_render(void);
 void func_8028E298(void);

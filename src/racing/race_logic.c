@@ -19,6 +19,8 @@
 #include "audio/external.h"
 #include "race_logic.h"
 #include "skybox_and_splitscreen.h"
+#include "math_util.h"
+#include "data_segment2.h"
 #include "math_util_2.h"
 #include "effects.h"
 #include "math.h"
@@ -136,6 +138,10 @@ s32 sc64ReadText(char* buf, s32 size);
 #define AUDIENCE_TEXT_MAX 64
 #define AUDIENCE_PLAYERS 4
 #define AUDIENCE_MAX_LINES 8
+#define GOGGLES_FRAMES 150
+#define GOGGLES_FADE_IN 20
+#define GOGGLES_FADE_OUT 40
+#define GOGGLES_ALPHA 0xD8
 
 extern s8 D_800E5628[]; // ASCII to debug font glyph, negative if there is none
 
@@ -146,6 +152,8 @@ typedef struct {
 } AudienceMessage;
 
 static AudienceMessage sAudienceMessages[AUDIENCE_PLAYERS];
+// Frames left of each player's "Promillebrille" (drunk goggles)
+static s32 sGogglesTimer[AUDIENCE_PLAYERS];
 
 // prefix and text are already restricted to the debug font (by the dashboard)
 static void audience_message(s32 playerIndex, const char* prefix, const char* text, s32 frames) {
@@ -210,6 +218,60 @@ static s32 audience_wrap(const char* text, s32 perLine, s32* starts, s32* length
     return lines;
 }
 
+// [x0, x1) x [y0, y1), in 1-cycle mode: right and bottom edges are exclusive
+static void translucent_rect(s32 x0, s32 y0, s32 x1, s32 y1) {
+    if (x1 > x0 && y1 > y0) {
+        gDPFillRectangle(gDisplayListHead++, x0, y0, x1, y1);
+    }
+}
+
+/**
+ * Drunk goggles: tunnel vision on a player's screen. Translucent dark edges
+ * close in, leaving a view with stepped corners in the middle that sways left
+ * and right. The rectangles don't overlap, overlaps would show darker.
+ */
+static void render_goggles(struct UnkStruct_800DC5EC* screen, s32 timer) {
+    s32 left = screen->screenStartX - screen->screenWidth / 2;
+    s32 right = screen->screenStartX + screen->screenWidth / 2;
+    s32 top = screen->screenStartY - screen->screenHeight / 2;
+    s32 bottom = screen->screenStartY + screen->screenHeight / 2;
+    s32 elapsed = GOGGLES_FRAMES - timer;
+    s32 strength; // 0 to 256
+    s32 cx, cy, cw, ch, k, w, h, previousH;
+
+    if (elapsed < GOGGLES_FADE_IN) {
+        strength = elapsed * 256 / GOGGLES_FADE_IN;
+    } else if (timer < GOGGLES_FADE_OUT) {
+        strength = timer * 256 / GOGGLES_FADE_OUT;
+    } else {
+        strength = 256;
+    }
+    // Half the size of the clear view: down to 35 % of the screen
+    cw = screen->screenWidth / 2 - (screen->screenWidth / 2 * 65 / 100) * strength / 256;
+    ch = screen->screenHeight / 2 - (screen->screenHeight / 2 * 65 / 100) * strength / 256;
+    cx = screen->screenStartX + (s32) (sins(elapsed * 0x300) * (screen->screenWidth / 10) * strength / 256);
+    cy = screen->screenStartY;
+
+    gSPDisplayList(gDisplayListHead++, D_02008008);
+    gDPSetPrimColor(gDisplayListHead++, 0, 0, 0, 0, 0, GOGGLES_ALPHA);
+    translucent_rect(left, top, right, cy - ch);
+    translucent_rect(left, cy + ch, right, bottom);
+    translucent_rect(left, cy - ch, cx - cw, cy + ch);
+    translucent_rect(cx + cw, cy - ch, right, cy + ch);
+    // Round-ish corners: three steps in each, each step a band of its own rows
+    previousH = 0;
+    for (k = 1; k <= 3; k++) {
+        w = cw * (4 - k) / 8;
+        h = ch * k / 8;
+        translucent_rect(cx - cw, cy - ch + previousH, cx - cw + w, cy - ch + h);
+        translucent_rect(cx + cw - w, cy - ch + previousH, cx + cw, cy - ch + h);
+        translucent_rect(cx - cw, cy + ch - h, cx - cw + w, cy + ch - previousH);
+        translucent_rect(cx + cw - w, cy + ch - h, cx + cw, cy + ch - previousH);
+        previousH = h;
+    }
+    gDPPipeSync(gDisplayListHead++);
+}
+
 /**
  * Called at the end of every rendered race frame. Draws each player's message
  * onto their own screen, on a black box right where their kart is, so it gets
@@ -228,7 +290,18 @@ void audience_render(void) {
     for (s = 0; s < screenCount; s++) {
         screen = &D_8015F480[s];
         playerIndex = screen->player - gPlayers;
-        if (playerIndex < 0 || playerIndex >= AUDIENCE_PLAYERS || sAudienceMessages[playerIndex].timer <= 0) {
+        if (playerIndex < 0 || playerIndex >= AUDIENCE_PLAYERS) {
+            continue;
+        }
+        // The screens zoom in from 4x4 pixels at the start (see func_802A74BC())
+        if (screen->screenWidth < 64) {
+            continue;
+        }
+        if (sGogglesTimer[playerIndex] > 0) {
+            render_goggles(screen, sGogglesTimer[playerIndex]);
+            sGogglesTimer[playerIndex]--;
+        }
+        if (sAudienceMessages[playerIndex].timer <= 0) {
             continue;
         }
         message = &sAudienceMessages[playerIndex];
@@ -280,6 +353,7 @@ static void audience_clear_messages(void) {
 
     for (i = 0; i < AUDIENCE_PLAYERS; i++) {
         sAudienceMessages[i].timer = 0;
+        sGogglesTimer[i] = 0;
     }
 }
 
@@ -326,9 +400,25 @@ void audience_steal(s32 playerIndex) {
 }
 
 /**
+ * The audience puts the "Promillebrille" (drunk goggles) on a player.
+ * Harmless on purpose: doesn't trigger any event that dispenses a drink.
+ */
+void audience_goggles(s32 playerIndex) {
+    Player* player = &gPlayers[playerIndex];
+
+    if (!(player->type & PLAYER_EXISTS) || !(player->type & PLAYER_HUMAN) ||
+        (player->type & PLAYER_CINEMATIC_MODE)) {
+        return;
+    }
+    sGogglesTimer[playerIndex] = GOGGLES_FRAMES;
+    osSyncPrintf("{\"event\":\"audience_goggles\", \"playerIndex\":%d}\n", playerIndex);
+}
+
+/**
  * Commands from the dranglpak64 dashboard, sent via `sc64deployer debug`:
  *   "steal <playerIndex>"
  *   "say <playerIndex> <message>", or "say * <message>" for everyone
+ *   "goggles <playerIndex>"
  * Only acted upon while a race/battle is running.
  */
 void audience_poll(void) {
@@ -342,6 +432,10 @@ void audience_poll(void) {
     if ((i = starts_with(buf, "steal ")) != 0) {
         if (buf[i] >= '0' && buf[i] <= '3') {
             audience_steal(buf[i] - '0');
+        }
+    } else if ((i = starts_with(buf, "goggles ")) != 0) {
+        if (buf[i] >= '0' && buf[i] <= '3') {
+            audience_goggles(buf[i] - '0');
         }
     } else if ((i = starts_with(buf, "say ")) != 0 && buf[i] != '\0' && buf[i + 1] == ' ') {
         for (playerIndex = 0; playerIndex < AUDIENCE_PLAYERS; playerIndex++) {
