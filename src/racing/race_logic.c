@@ -112,11 +112,17 @@ void update_player_battle_status(void) {
             aliveCounter++;
         }
     }
+    // Players eliminated in the same frame share their place.
+    for (playerIndex = 0; playerIndex < deadCounter; playerIndex++) {
+        osSyncPrintf("{\"event\":\"battle_out\", \"playerIndex\":%d, \"place\":%d}\n", playersDead[playerIndex], aliveCounter + deadCounter);
+    }
     if (aliveCounter == 1) {
         gPlayerWinningIndex = (s32) playersAlive[0];
+        osSyncPrintf("{\"event\":\"battle_win\", \"playerIndex\":%d}\n", gPlayerWinningIndex);
         func_8028E028();
     } else if (aliveCounter == 0) {
         gPlayerWinningIndex = (s32) playersDead[0];
+        osSyncPrintf("{\"event\":\"battle_win\", \"playerIndex\":%d}\n", gPlayerWinningIndex);
         func_8028E028();
     }
 }
@@ -495,6 +501,7 @@ void start_race(void) {
     D_8015011E = -1;
     if (!gDemoMode) { // If we're not in the title screen demo, play the music for the current track.
         play_music_for_current_track(gCurrentCourseId);
+        osSyncPrintf("{\"event\":\"race_start\"}\n");
     }
 
     if (D_800DC510 == 2) {
@@ -547,6 +554,7 @@ void func_8028EF28(void) {
                     func_8028EEF0(i);
 
                     currentPosition = gPlayers[i].currentRank;
+                    osSyncPrintf("{\"event\":\"race_finish\", \"playerIndex\":%d, \"place\":%d}\n", i, currentPosition + 1);
                     gPlayers[i].type |= PLAYER_CPU;
 
                     if (currentPosition < 4) {
